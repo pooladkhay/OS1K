@@ -32,6 +32,16 @@ void kernel_main(void) {
   printf("\n\nHello, %s\n", "World!");
   printf("1 + 2 = %d\n", 1 + 2);
 
+  PANIC("BOOM!");
+
+  char s1[] = "string1";
+  char s2[] = "string1";
+
+  if (!strcmp(s1, s2))
+    printf("s1 == s2\n");
+  else
+    printf("s1 != s2\n");
+
   for (;;) {
     __asm__ __volatile__("wfi");
   }
