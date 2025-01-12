@@ -113,26 +113,33 @@ void handle_trap(struct trap_frame *f) {
 
 void kernel_main(void) {
   memset(__bss, 0, (size_t)__bss_end - (size_t)__bss);
+  WRITE_CSR(stvec, (uint32_t)kernel_entry);
 
-  WRITE_CSR(stvec, (uint32_t)kernel_entry); // new
-  __asm__ __volatile__("unimp");            // new
+  paddr_t paddr0 = alloc_pages(2);
+  paddr_t paddr1 = alloc_pages(1);
+  printf("alloc_pages test: paddr0=%x\n", paddr0);
+  printf("alloc_pages test: paddr1=%x\n", paddr1);
 
-  printf("\n\nHello, %s\n", "World!");
-  printf("1 + 2 = %d\n", 1 + 2);
+  PANIC("booted!");
 
-  PANIC("BOOM!");
+  // __asm__ __volatile__("unimp");
 
-  char s1[] = "string1";
-  char s2[] = "string1";
+  // printf("\n\nHello, %s\n", "World!");
+  // printf("1 + 2 = %d\n", 1 + 2);
 
-  if (!strcmp(s1, s2))
-    printf("s1 == s2\n");
-  else
-    printf("s1 != s2\n");
+  // PANIC("BOOM!");
 
-  for (;;) {
-    __asm__ __volatile__("wfi");
-  }
+  // char s1[] = "string1";
+  // char s2[] = "string1";
+
+  // if (!strcmp(s1, s2))
+  //   printf("s1 == s2\n");
+  // else
+  //   printf("s1 != s2\n");
+
+  // for (;;) {
+  //   __asm__ __volatile__("wfi");
+  // }
 }
 
 __attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
