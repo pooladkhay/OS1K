@@ -2,6 +2,17 @@
 
 #include "common.h"
 
+#define PROC_NO_MAX 8
+#define PROC_STATE_UNUSED 0
+#define PROC_STATE_RUNNABLE 1
+
+struct process {
+  int pid;
+  int state;
+  vaddr_t sp;
+  uint8_t stack[8192];
+};
+
 struct sbiret {
   long error;
   long value;
