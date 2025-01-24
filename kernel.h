@@ -13,6 +13,9 @@
 #define PAGE_X (1 << 3)      // Executable
 #define PAGE_U (1 << 4)      // User (accessible in user mode)
 
+#define SSTATUS_SPIE (1 << 5)
+#define USER_BASE 0x1000000
+
 struct process {
   int pid;
   int state;
