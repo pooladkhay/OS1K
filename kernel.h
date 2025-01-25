@@ -5,6 +5,7 @@
 #define PROC_NO_MAX 8
 #define PROC_STATE_UNUSED 0
 #define PROC_STATE_RUNNABLE 1
+#define PROC_STATE_EXITED 2
 
 #define SATP_SV32 (1u << 31) // Paging in SV32 mode
 #define PAGE_V (1 << 0)      // "Valid" bit (entry is enabled)

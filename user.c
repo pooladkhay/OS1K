@@ -3,11 +3,6 @@
 
 extern char __stack_top[];
 
-__attribute__((noreturn)) void exit(void) {
-  for (;;)
-    ;
-}
-
 __attribute__((section(".text.start"))) __attribute__((naked)) void
 start(void) {
   __asm__ __volatile__("mv sp, %[stack_top] \n"
@@ -27,6 +22,12 @@ int syscall(int sysno, int arg0, int arg1, int arg2) {
                        : "memory");
 
   return a0;
+}
+
+__attribute__((noreturn)) void exit(void) {
+  syscall(SYS_EXIT, 0, 0, 0);
+  for (;;)
+    ; // Paranoia
 }
 
 void putchar(char ch) { syscall(SYS_PUTCHAR, ch, 0, 0); }

@@ -7,6 +7,9 @@ extern char __kernel_base[];
 
 extern char _binary_shell_bin_start[], _binary_shell_bin_size[];
 
+struct process *idle_proc;
+struct process *current_proc;
+
 struct sbiret sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
                        long arg5, long fid, long eid) {
   register long a0 __asm__("a0") = arg0;
@@ -136,6 +139,11 @@ void handle_syscall(struct trap_frame *f) {
       yield();
     }
     break;
+  case SYS_EXIT:
+    printf("process %d exited\n", current_proc->pid);
+    current_proc->state = PROC_STATE_EXITED;
+    yield();
+    PANIC("unreachable");
   default:
     PANIC("unexpected syscall a3=%x\n", f->a3);
   }
@@ -305,9 +313,6 @@ void delay(void) {
   for (int i = 0; i < 30000000; i++)
     __asm__ __volatile__("nop");
 }
-
-struct process *idle_proc;
-struct process *current_proc;
 
 void yield(void) {
   struct process *next = idle_proc;
