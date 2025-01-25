@@ -84,3 +84,5 @@ struct trap_frame {
     while (1) {                                                                \
     }                                                                          \
   } while (0)
+
+void yield(void);
