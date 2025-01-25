@@ -16,6 +16,8 @@
 #define SSTATUS_SPIE (1 << 5)
 #define USER_BASE 0x1000000
 
+#define SCAUSE_ECALL 8
+
 struct process {
   int pid;
   int state;
