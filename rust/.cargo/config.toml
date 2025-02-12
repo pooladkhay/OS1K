@@ -1,7 +1,9 @@
-[target.riscv32i-unknown-none-elf]
+[build]
+target = "riscv32imac-unknown-none-elf"
 rustflags = [
   "-Clink-arg=-Tkernel.ld",
   "-Clink-arg=-Map=kernel.map"
 ]
-[build]
-target = "riscv32i-unknown-none-elf"
+
+[target.riscv32imac-unknown-none-elf]
+runner = "qemu-system-riscv32 -monitor stdio -machine virt -bios default --no-reboot -kernel ./target/riscv32imac-unknown-none-elf/release/os1k"
