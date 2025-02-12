@@ -15,7 +15,22 @@ unsafe extern "C" {
 }
 
 #[unsafe(no_mangle)]
-fn kernel_main() {
+unsafe fn memset(buf: *mut u8, val: u8, size: isize) -> *mut u8 {
+    for i in 0..size {
+        unsafe { *buf.offset(i) = val }
+    }
+
+    buf
+}
+
+#[unsafe(no_mangle)]
+unsafe fn kernel_main() -> ! {
+    unsafe {
+        let bss_start = &__bss as *const u8 as *mut u8;
+        let bss_end = &__bss_end as *const u8;
+        _ = memset(bss_start, 0, bss_end.offset_from(bss_start));
+    }
+
     loop {}
 }
 
@@ -25,7 +40,6 @@ pub unsafe extern "C" fn boot() -> ! {
     unsafe {
         asm!(
             "mv sp, {stack_top}\n
-            li t1, 6\n
             j {kernel_main}\n",
             stack_top = in(reg) &__stack_top,
             kernel_main = sym kernel_main,
