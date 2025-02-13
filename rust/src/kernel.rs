@@ -3,6 +3,8 @@
 
 use core::{arch::asm, panic::PanicInfo};
 
+mod sbi;
+
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     loop {}
@@ -23,12 +25,22 @@ unsafe fn memset(buf: *mut u8, val: u8, size: isize) -> *mut u8 {
     buf
 }
 
+fn putchar(ch: char) {
+    unsafe {
+        _ = sbi::sbi_call(ch as isize, 0, 0, 0, 0, 0, 0, 1);
+    }
+}
+
 #[unsafe(no_mangle)]
 unsafe fn kernel_main() -> ! {
     unsafe {
         let bss_start = &__bss as *const u8 as *mut u8;
         let bss_end = &__bss_end as *const u8;
         _ = memset(bss_start, 0, bss_end.offset_from(bss_start));
+    }
+
+    for ch in "Hello, World!".chars() {
+        putchar(ch);
     }
 
     loop {}
