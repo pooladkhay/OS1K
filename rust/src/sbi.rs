@@ -1,6 +1,5 @@
 use core::arch::asm;
 
-#[unsafe(no_mangle)]
 pub unsafe fn sbi_call(
     arg0: isize,
     arg1: isize,

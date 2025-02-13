@@ -16,7 +16,6 @@ unsafe extern "C" {
     static __stack_top: u8;
 }
 
-#[unsafe(no_mangle)]
 unsafe fn memset(buf: *mut u8, val: u8, size: isize) -> *mut u8 {
     for i in 0..size {
         unsafe { *buf.offset(i) = val }
@@ -31,7 +30,6 @@ fn putchar(ch: char) {
     }
 }
 
-#[unsafe(no_mangle)]
 unsafe fn kernel_main() -> ! {
     unsafe {
         let bss_start = &__bss as *const u8 as *mut u8;
