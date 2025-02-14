@@ -1,9 +1,12 @@
 #![no_std]
 #![no_main]
 
-use core::{arch::asm, panic::PanicInfo};
-
+mod println;
 mod sbi;
+mod stdkern;
+
+use core::{arch::asm, panic::PanicInfo};
+use stdkern::memset;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -16,20 +19,6 @@ unsafe extern "C" {
     static __stack_top: u8;
 }
 
-unsafe fn memset(buf: *mut u8, val: u8, size: isize) -> *mut u8 {
-    for i in 0..size {
-        unsafe { *buf.offset(i) = val }
-    }
-
-    buf
-}
-
-fn putchar(ch: char) {
-    unsafe {
-        _ = sbi::sbi_call(ch as isize, 0, 0, 0, 0, 0, 0, 1);
-    }
-}
-
 unsafe fn kernel_main() -> ! {
     unsafe {
         let bss_start = &__bss as *const u8 as *mut u8;
@@ -37,9 +26,7 @@ unsafe fn kernel_main() -> ! {
         _ = memset(bss_start, 0, bss_end.offset_from(bss_start));
     }
 
-    for ch in "Hello, World!".chars() {
-        putchar(ch);
-    }
+    println!("Hello, World!");
 
     loop {}
 }

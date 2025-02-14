@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+// pub enum SBIErr {}
+
 pub unsafe fn sbi_call(
     arg0: isize,
     arg1: isize,
@@ -30,4 +32,10 @@ pub unsafe fn sbi_call(
     }
 
     if err == 0 { Ok(val) } else { Err(err) }
+}
+
+pub fn putchar(ch: char) {
+    unsafe {
+        _ = sbi_call(ch as isize, 0, 0, 0, 0, 0, 0, 1);
+    }
 }
