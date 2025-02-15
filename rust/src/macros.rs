@@ -37,3 +37,29 @@ macro_rules! panic {
         }
     });
 }
+
+#[macro_export]
+macro_rules! read_csr {
+    ($reg:literal) => {{
+        let value: usize;
+        unsafe {
+            core::arch::asm!(
+                concat!("csrr {0}, ", $reg),
+                out(reg) value,
+            );
+        }
+        value
+    }};
+}
+
+#[macro_export]
+macro_rules! write_csr {
+    ($reg:literal, $value:expr) => {
+        unsafe {
+            core::arch::asm!(
+                concat!("csrw ", $reg, ", {0}"),
+                in(reg) $value,
+            );
+        }
+    };
+}
