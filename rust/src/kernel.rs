@@ -3,10 +3,10 @@
 
 mod println;
 mod sbi;
-mod stdkern;
+mod stdlib;
 
 use core::{arch::asm, panic::PanicInfo};
-use stdkern::memset;
+use stdlib::memset;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -23,7 +23,7 @@ unsafe fn kernel_main() -> ! {
     unsafe {
         let bss_start = &__bss as *const u8 as *mut u8;
         let bss_end = &__bss_end as *const u8;
-        _ = memset(bss_start, 0, bss_end.offset_from(bss_start));
+        _ = memset(bss_start, 0, bss_end.offset_from(bss_start) as usize);
     }
 
     println!("Hello, World!");
