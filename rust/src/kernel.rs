@@ -38,14 +38,11 @@ unsafe fn kernel_main() -> ! {
 pub unsafe extern "C" fn boot() -> ! {
     unsafe {
         asm!(
-            "mv sp, {stack_top}\n
-            j {kernel_main}\n",
+            "mv sp, {stack_top}",
+            "j {kernel_main}",
             stack_top = in(reg) &__stack_top,
             kernel_main = sym kernel_main,
+            options(noreturn)
         );
-    }
-
-    loop {
-        unsafe { asm!("wfi") }
     }
 }
