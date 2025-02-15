@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-mod println;
+mod macros;
 mod sbi;
 mod stdlib;
 
@@ -9,8 +9,8 @@ use core::{arch::asm, panic::PanicInfo};
 use stdlib::memset;
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    loop {}
+fn panic(info: &PanicInfo) -> ! {
+    panic!("{info}")
 }
 
 unsafe extern "C" {
@@ -28,7 +28,9 @@ unsafe fn kernel_main() -> ! {
 
     println!("Hello, World!");
 
-    loop {}
+    loop {
+        unsafe { asm!("wfi") }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -42,5 +44,8 @@ pub unsafe extern "C" fn boot() -> ! {
             kernel_main = sym kernel_main,
         );
     }
-    loop {}
+
+    loop {
+        unsafe { asm!("wfi") }
+    }
 }
