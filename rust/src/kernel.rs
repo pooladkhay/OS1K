@@ -1,12 +1,15 @@
+#![feature(naked_functions)]
 #![no_std]
 #![no_main]
 
 mod macros;
 mod sbi;
 mod stdlib;
+mod trap;
 
 use core::{arch::asm, panic::PanicInfo};
 use stdlib::memset;
+use trap::trap_entry;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
@@ -20,6 +23,8 @@ unsafe extern "C" {
 }
 
 unsafe fn kernel_main() -> ! {
+    write_csr!("stvec", trap_entry as *const ());
+
     unsafe {
         let bss_start = &__bss as *const u8 as *mut u8;
         let bss_end = &__bss_end as *const u8;
@@ -27,6 +32,9 @@ unsafe fn kernel_main() -> ! {
     }
 
     println!("Hello, World!");
+
+    // trigger an exception
+    unsafe { asm!("unimp") }
 
     loop {
         unsafe { asm!("wfi") }
