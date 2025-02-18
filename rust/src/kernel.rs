@@ -10,7 +10,7 @@ mod sync;
 mod trap;
 
 use core::{arch::asm, panic::PanicInfo};
-use stdlib::memset;
+use stdlib::{memset, palloc};
 use trap::trap_entry;
 
 #[panic_handler]
@@ -41,8 +41,11 @@ unsafe fn kernel_main() -> ! {
 
     println!("Hello, World!");
 
-    // trigger an exception
-    unsafe { asm!("unimp") }
+    let m = palloc(4).unwrap();
+    println!("{:x}", m);
+
+    let m = palloc(2).unwrap();
+    println!("{:x}", m);
 
     loop {
         unsafe { asm!("wfi") }
