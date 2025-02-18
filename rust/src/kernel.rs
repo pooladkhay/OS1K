@@ -5,6 +5,7 @@
 mod macros;
 mod sbi;
 mod stdlib;
+mod sync;
 mod trap;
 
 use core::{arch::asm, panic::PanicInfo};
