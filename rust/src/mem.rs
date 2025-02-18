@@ -1,4 +1,8 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::{
+    fmt::LowerHex,
+    ops::{Add, Sub},
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use crate::{__free_ram, __free_ram_end, sync::OnceCell};
 
@@ -60,7 +64,119 @@ static MEMORY: OnceCell<Memory> = OnceCell::new();
 /// Returns the beginning address of the allocated region if successful,
 /// or an error of type `Error` if the allocation fails.
 /// The returned address is guaranteed to be page-aligned.
-pub fn page_alloc(n: usize) -> Result<usize, Error> {
+pub fn page_alloc(n: usize) -> Result<PhysAddr, Error> {
     let mem = MEMORY.get_or_init(Memory::new);
-    mem.allocate(n * PAGE_SIZE)
+    mem.allocate(n * PAGE_SIZE).map(PhysAddr::new)
+}
+
+/// `PhysAddr` represents a physical memory address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PhysAddr(usize);
+
+impl PhysAddr {
+    pub fn new(addr: usize) -> Self {
+        Self(addr)
+    }
+
+    pub const fn as_usize(self) -> usize {
+        self.0
+    }
+
+    pub fn is_aligned(&self, alignment: usize) -> bool {
+        self.0 % alignment == 0
+    }
+}
+
+impl Add<usize> for PhysAddr {
+    type Output = Self;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
+    }
+}
+
+impl Add for PhysAddr {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Sub<usize> for PhysAddr {
+    type Output = Self;
+
+    fn sub(self, rhs: usize) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
+
+impl Sub for PhysAddr {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl LowerHex for PhysAddr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        LowerHex::fmt(&self.0, f)
+    }
+}
+
+/// `VirtAddr` represents a virtual memory address.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VirtAddr(usize);
+
+impl VirtAddr {
+    pub fn new(addr: usize) -> Self {
+        Self(addr)
+    }
+
+    pub const fn as_usize(self) -> usize {
+        self.0
+    }
+
+    pub fn is_aligned(&self, alignment: usize) -> bool {
+        self.0 % alignment == 0
+    }
+}
+
+impl Add<usize> for VirtAddr {
+    type Output = Self;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        Self(self.0 + rhs)
+    }
+}
+
+impl Add for VirtAddr {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl Sub<usize> for VirtAddr {
+    type Output = Self;
+
+    fn sub(self, rhs: usize) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
+
+impl Sub for VirtAddr {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl LowerHex for VirtAddr {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        LowerHex::fmt(&self.0, f)
+    }
 }

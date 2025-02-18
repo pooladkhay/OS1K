@@ -1,4 +1,4 @@
-use crate::mem::{Error, page_alloc};
+use crate::mem::{Error, PhysAddr, page_alloc};
 
 /// Sets `size` bytes of memory starting at `buf` to the value `val`.
 ///
@@ -114,6 +114,6 @@ pub unsafe fn strcmp(s1: *const u8, s2: *const u8) -> isize {
 /// Returns the beginning address of the allocated region if successful,
 /// or an error of type `Error` if the allocation fails.
 /// The returned address is guaranteed to be page-aligned.
-pub fn palloc(n: usize) -> Result<usize, Error> {
+pub fn palloc(n: usize) -> Result<PhysAddr, Error> {
     page_alloc(n)
 }

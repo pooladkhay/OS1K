@@ -42,10 +42,10 @@ unsafe fn kernel_main() -> ! {
     println!("Hello, World!");
 
     let m = palloc(4).unwrap();
-    println!("{:x}", m);
+    println!("0x{:x}", m);
 
     let m = palloc(2).unwrap();
-    println!("{:x}", m);
+    println!("0x{:x}", m);
 
     loop {
         unsafe { asm!("wfi") }
