@@ -3,6 +3,7 @@
 #![no_main]
 
 mod macros;
+mod mem;
 mod sbi;
 mod stdlib;
 mod sync;
@@ -21,6 +22,8 @@ unsafe extern "C" {
     static __bss: u8;
     static __bss_end: u8;
     static __stack_top: u8;
+    static __free_ram: u8;
+    static __free_ram_end: u8;
 }
 
 unsafe fn kernel_main() -> ! {
@@ -30,6 +33,10 @@ unsafe fn kernel_main() -> ! {
         let bss_start = &__bss as *const u8 as *mut u8;
         let bss_end = &__bss_end as *const u8;
         _ = memset(bss_start, 0, bss_end.offset_from(bss_start) as usize);
+
+        let ram_start = &__free_ram as *const u8 as *mut u8;
+        let ram_end = &__free_ram_end as *const u8;
+        _ = memset(ram_start, 0, ram_end.offset_from(ram_start) as usize);
     }
 
     println!("Hello, World!");
