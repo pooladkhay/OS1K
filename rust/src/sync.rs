@@ -1,5 +1,6 @@
 use core::cell::UnsafeCell;
 use core::hint::spin_loop;
+use core::ops::{Deref, DerefMut};
 use core::sync::atomic::{AtomicU8, Ordering};
 
 #[repr(u8)]
@@ -106,3 +107,74 @@ impl<T> OnceCell<T> {
         unsafe { (*self.value.get()).as_ref().unwrap() }
     }
 }
+
+#[repr(u8)]
+enum MutexState {
+    Free = 0,
+    Locked = 1,
+}
+
+/// A spinlock-based (using `core::hint::spin_loop()`) mutex.
+pub struct Mutex<T> {
+    lock: AtomicU8,
+    data: UnsafeCell<T>,
+}
+
+impl<T> Mutex<T> {
+    /// Creates a new mutex wrapping the supplied data.
+    pub const fn new(data: T) -> Self {
+        Self {
+            lock: AtomicU8::new(MutexState::Free as u8),
+            data: UnsafeCell::new(data),
+        }
+    }
+
+    /// Acquires the lock, spinning (using `core::hint::spin_loop()`) until it becomes available.
+    pub fn lock(&self) -> MutexGuard<T> {
+        while self
+            .lock
+            .compare_exchange(
+                MutexState::Free as u8,
+                MutexState::Locked as u8,
+                Ordering::Acquire,
+                Ordering::Relaxed,
+            )
+            .is_err()
+        {
+            spin_loop();
+        }
+        MutexGuard { mutex: self }
+    }
+}
+
+/// A guard that releases the lock when dropped.
+pub struct MutexGuard<'a, T> {
+    mutex: &'a Mutex<T>,
+}
+
+impl<'a, T> Deref for MutexGuard<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        // Safety: we hold the lock.
+        unsafe { &*self.mutex.data.get() }
+    }
+}
+
+impl<'a, T> DerefMut for MutexGuard<'a, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        // Safety: we hold the lock.
+        unsafe { &mut *self.mutex.data.get() }
+    }
+}
+
+impl<'a, T> Drop for MutexGuard<'a, T> {
+    fn drop(&mut self) {
+        self.mutex
+            .lock
+            .store(MutexState::Free as u8, Ordering::Release);
+    }
+}
+
+// Safety: Our simple mutex is safe to share between threads as long as T is Send.
+unsafe impl<T: Send> Sync for Mutex<T> {}
+unsafe impl<T: Send> Send for Mutex<T> {}
