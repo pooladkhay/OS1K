@@ -30,7 +30,13 @@ SECTIONS {
     __stack_top = .;
 
     . = ALIGN(4096);
+    __allocator_mem = .;
+    . += 512 * 1024; /* 512KB */
+    __allocator_mem_end = .;
+
+    . = ALIGN(4096);
     __free_ram = .;
-    . += 64 * 1024 * 1024; /* 64MB */
+    /* memset on ram panics if > 125mb */
+    . += 64 * 1024 * 1024; /* 65MB */
     __free_ram_end = .;
 }
