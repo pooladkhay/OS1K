@@ -33,7 +33,7 @@ macro_rules! panic {
         use crate::print;
         print!("PANIC: {}:{}: {}", file!(), line!(), format_args!($($arg)*));
         loop {
-            unsafe { asm!("wfi") }
+            unsafe { core::arch::asm!("wfi") }
         }
     });
 }
