@@ -37,7 +37,7 @@ pub fn buddy_alloc(n: usize) -> Result<PhysAddr, Error> {
     // init_mem() has already initialized the OnceCell and Mutex.
     let mem = MEMORY.get_or_init(|| Mutex::new(Memory::new(None, None, None, None)));
     // FIXME: Giant lock on all available memory
-    mem.lock().buddy_alloc(n).map(PhysAddr::new)
+    mem.lock().buddy_alloc(n)
 }
 
 // MARK - END
@@ -82,7 +82,7 @@ impl InitialAlloc {
     /// Returns the beginning address of the allocated region if successful.
     /// The returned address is guaranteed to be page-aligned.
     ///
-    /// # Panic
+    /// # Panics
     ///
     /// This function panics if there is not enough available memory.
     fn page_alloc(&mut self, n: usize) -> PhysAddr {
@@ -96,7 +96,7 @@ impl InitialAlloc {
             panic!("{:?}", Error::OutOfMemory);
         }
 
-        PhysAddr::new(addr)
+        PhysAddr::new(addr, Some(size))
     }
 }
 
@@ -131,7 +131,7 @@ struct Memory<'a> {
     buddy_high_order: usize,
     buddy_low_order: usize,
     buddy_stack_size: usize,
-    buddy_stack: &'a mut [usize],
+    buddy_stack: &'a mut [usize], // FIXME: change to function-local
     buddy_meta: &'a mut [BlockState],
 }
 
@@ -202,8 +202,8 @@ impl<'a> Memory<'a> {
         };
 
         Self {
-            start: PhysAddr::new(start),
-            end: PhysAddr::new(end),
+            start: PhysAddr::new(start, None),
+            end: PhysAddr::new(end, None),
             mem_size,
             buddy_node_count,
             buddy_high_order,
@@ -221,12 +221,12 @@ impl<'a> Memory<'a> {
     /// The returned address is guaranteed to be page-aligned.
     ///
     /// This function uses a binary tree represented as an array of `BlockState`s.
-    fn buddy_alloc(&mut self, n: usize) -> Result<usize, Error> {
+    fn buddy_alloc(&mut self, n: usize) -> Result<PhysAddr, Error> {
         let n: usize = if n < PAGE_SIZE { PAGE_SIZE } else { n };
         let req_order = self.buddy_high_order - find_order(n);
 
         let mut sp = 0_isize;
-        self.buddy_stack[sp as usize] = 0;
+        self.buddy_stack[sp as usize] = 0; // index of the first node
 
         while sp >= 0 {
             let i = self.buddy_stack[sp as usize];
@@ -243,8 +243,7 @@ impl<'a> Memory<'a> {
                                 * 2_usize.pow((self.buddy_high_order - level) as u32),
                         )
                     };
-
-                    return Ok(addr as usize);
+                    return Ok(PhysAddr::new(addr as usize, Some(n)));
                 }
             } else {
                 match self.buddy_meta[i] {
@@ -276,17 +275,20 @@ impl<'a> Memory<'a> {
 
 /// `PhysAddr` represents a physical memory address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct PhysAddr(usize);
+#[repr(C)]
+pub struct PhysAddr {
+    addr: usize,
+    size: Option<usize>,
+}
 
 impl PhysAddr {
-    pub fn new(addr: usize) -> Self {
+    pub fn new(addr: usize, size: Option<usize>) -> Self {
         // FIXME: Should not allow 0
-        Self(addr)
+        Self { addr, size }
     }
 
     pub const fn as_usize(self) -> usize {
-        self.0
+        self.addr
     }
 
     /// Checks if the internal value is aligned to the specified `alignment`.
@@ -298,7 +300,7 @@ impl PhysAddr {
     /// # Panics
     /// If `alignment` is zero, this function will panic due to division by zero.
     pub fn is_aligned(&self, alignment: usize) -> bool {
-        self.0 % alignment == 0
+        self.addr % alignment == 0
     }
 
     /// Returns a `*const u8` pointer derived from the internal `usize` value.
@@ -307,7 +309,7 @@ impl PhysAddr {
     /// is not dereferenced by this function, so it is safe to call. The caller is responsible
     /// for ensuring the pointer is valid and properly aligned if they choose to dereference it.
     pub fn as_ptr(&self) -> *const u8 {
-        self.0 as *const u8
+        self.addr as *const u8
     }
 
     /// Returns a `*mut u8` pointer derived from the internal `usize` value.
@@ -317,99 +319,99 @@ impl PhysAddr {
     /// that dereferencing or writing to it does not violate Rust's aliasing rules (e.g., no
     /// concurrent mutable access without proper synchronization).
     pub fn as_ptr_mut(&self) -> *mut u8 {
-        self.0 as *const u8 as *mut u8
+        self.addr as *const u8 as *mut u8
     }
 
     /// # Safety
     ///
-    /// - `self.0 as *const T` must be a valid, non-null pointer to a readable memory region.
+    /// - `self.addr as *const T` must be a valid, non-null pointer to a readable memory region.
     /// - The memory region must contain at least `len` initialized elements of type `T`.
     /// - The pointer must be properly aligned for type `T`.
     /// - The memory must remain allocated and immutable for the entire duration of the program.
     unsafe fn as_slice<T>(self, len: usize) -> &'static [T] {
-        unsafe { slice::from_raw_parts(self.0 as *const T, len) }
+        unsafe { slice::from_raw_parts(self.addr as *const T, len) }
     }
 
     /// # Safety
     ///
-    /// - `self.0 as *mut T` must be a valid, non-null pointer to a readable and writable memory region.
+    /// - `self.addr as *mut T` must be a valid, non-null pointer to a readable and writable memory region.
     /// - The memory region must contain at least `len` elements of type `T`.
     /// - The pointer must be properly aligned for type `T`.
     /// - The memory must remain allocated for the entire duration of the program.
     /// - No other references (mutable or immutable) to the memory should exist while the mutable slice is in use.
     unsafe fn as_slice_mut<T>(self, len: usize) -> &'static mut [T] {
-        unsafe { slice::from_raw_parts_mut(self.0 as *mut T, len) }
+        unsafe { slice::from_raw_parts_mut(self.addr as *mut T, len) }
     }
 
     /// # Safety
     ///
-    /// - `self.0 as *const T` must be a valid, non-null pointer to a readable memory region containing an initialized value of type `T`.
+    /// - `self.addr as *const T` must be a valid, non-null pointer to a readable memory region containing an initialized value of type `T`.
     /// - The memory region must be at least `size_of::<T>()` bytes.
     /// - The pointer must be properly aligned for type `T`.
     /// - The memory must remain allocated and immutable for the entire duration of the program.
     unsafe fn as_struct<T>(self) -> &'static T {
-        unsafe { &*(self.0 as *const T) }
+        unsafe { &*(self.addr as *const T) }
     }
 
     /// # Safety
     ///
-    /// - `self.0 as *mut T` must be a valid, non-null pointer to a readable and writable memory region containing a value of type `T`.
+    /// - `self.addr as *mut T` must be a valid, non-null pointer to a readable and writable memory region containing a value of type `T`.
     /// - The memory region must be at least `size_of::<T>()` bytes.
     /// - The pointer must be properly aligned for type `T`.
     /// - The memory must remain allocated for the entire duration of the program.
     /// - If the reference is used to read, the memory must be initialized.
     /// - No other references (mutable or immutable) to the memory should exist while the mutable reference is in use.
     unsafe fn as_struct_mut<T>(self) -> &'static mut T {
-        unsafe { &mut *(self.0 as *const T as *mut T) }
+        unsafe { &mut *(self.addr as *const T as *mut T) }
     }
 
     /// # Safety
     ///
     /// The caller must ensure that:
-    /// - `self.0 as *const u8` is a valid pointer to a readable, initialized memory region of at least `len` bytes.
+    /// - `self.addr as *const u8` is a valid pointer to a readable, initialized memory region of at least `len` bytes.
     /// - The memory region remains allocated and is not deallocated for the entire duration of the program.
     /// - The memory region is not mutated for the entire duration of the program, as the returned `&'static str` references it immutably.
     unsafe fn as_str(self, len: usize) -> Result<&'static str, Utf8Error> {
-        let byte_slice = unsafe { slice::from_raw_parts(self.0 as *const u8, len) };
+        let byte_slice = unsafe { slice::from_raw_parts(self.addr as *const u8, len) };
         core::str::from_utf8(byte_slice)
     }
 }
 
-impl Add<usize> for PhysAddr {
-    type Output = Self;
+// impl Add<usize> for PhysAddr {
+//     type Output = Self;
 
-    fn add(self, rhs: usize) -> Self::Output {
-        Self(self.0 + rhs)
-    }
-}
+//     fn add(self, rhs: usize) -> Self::Output {
+//         Self(self.addr + rhs)
+//     }
+// }
 
-impl Add for PhysAddr {
-    type Output = Self;
+// impl Add for PhysAddr {
+//     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-}
+//     fn add(self, rhs: Self) -> Self::Output {
+//         Self(self.addr + rhs.0)
+//     }
+// }
 
-impl Sub<usize> for PhysAddr {
-    type Output = Self;
+// impl Sub<usize> for PhysAddr {
+//     type Output = Self;
 
-    fn sub(self, rhs: usize) -> Self::Output {
-        Self(self.0 - rhs)
-    }
-}
+//     fn sub(self, rhs: usize) -> Self::Output {
+//         Self(self.addr - rhs)
+//     }
+// }
 
-impl Sub for PhysAddr {
-    type Output = Self;
+// impl Sub for PhysAddr {
+//     type Output = Self;
 
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
-    }
-}
+//     fn sub(self, rhs: Self) -> Self::Output {
+//         Self(self.addr - rhs.0)
+//     }
+// }
 
 impl LowerHex for PhysAddr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        LowerHex::fmt(&self.0, f)
+        LowerHex::fmt(&self.addr, f)
     }
 }
 
