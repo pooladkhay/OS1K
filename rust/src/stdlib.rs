@@ -1,4 +1,4 @@
-use crate::mem::{Error, PhysAddr, buddy_alloc};
+use crate::mem::{Error, PhysAddr, buddy_alloc, buddy_free};
 
 /// Sets `size` bytes of memory starting at `buf` to the value `val`.
 ///
@@ -114,6 +114,17 @@ pub unsafe fn strcmp(s1: *const u8, s2: *const u8) -> isize {
 /// Returns the beginning address of the allocated region if successful,
 /// or an error of type `mem::Error` if the allocation fails.
 /// The returned address is guaranteed to be page-aligned.
+///
 pub fn phalloc(n: usize) -> Result<PhysAddr, Error> {
     buddy_alloc(n)
+}
+
+/// Frees the provided physical memory region (`addr`).
+///
+/// # Panics
+///
+/// This function panics if, while freeing, the state of a given block
+/// is not what it expects, which indicates a bug in the allocation logic.
+pub fn phree(addr: PhysAddr) {
+    buddy_free(addr);
 }

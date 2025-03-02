@@ -6,7 +6,7 @@ use core::{
 };
 
 use crate::{
-    panic,
+    panic, println,
     stdlib::memset,
     sync::{Mutex, OnceCell},
 };
@@ -38,6 +38,14 @@ pub fn buddy_alloc(n: usize) -> Result<PhysAddr, Error> {
     let mem = MEMORY.get_or_init(|| Mutex::new(Memory::new(None, None, None, None)));
     // FIXME: Giant lock on all available memory
     mem.lock().buddy_alloc(n)
+}
+
+pub fn buddy_free(addr: PhysAddr) {
+    // It's safe to call Memory::new() with None values since
+    // init_mem() has already initialized the OnceCell and Mutex.
+    let mem = MEMORY.get_or_init(|| Mutex::new(Memory::new(None, None, None, None)));
+    // FIXME: Giant lock on all available memory
+    mem.lock().buddy_free(addr);
 }
 
 // MARK - END
@@ -122,6 +130,32 @@ fn find_order(n: usize) -> usize {
     }
 }
 
+/// Returns the next powers of two that comes after `n`,
+/// or `None` if `n` is grater than `(usize::MAX / 2) + 1`
+fn next_power_of_two(n: usize) -> Option<usize> {
+    if n == 0 {
+        return Some(1);
+    }
+
+    if n > (usize::MAX / 2 + 1) {
+        return None; // Cannot represent next power of two within usize
+    }
+
+    let mut x = n - 1;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+
+    #[cfg(target_pointer_width = "64")]
+    {
+        x |= x >> 32;
+    }
+
+    Some(x + 1)
+}
+
 #[repr(C)]
 struct Memory<'a> {
     start: PhysAddr,
@@ -169,6 +203,8 @@ impl<'a> Memory<'a> {
         let start = ram_start.expect("expected the start address of RAM, found None.");
         let end = ram_end.expect("expected the end address of RAM, found None.");
 
+        // FIXME: This should be the size that buddy can handle,
+        // i.e. previous power of two of the actual size.
         let mem_size = end - start;
 
         // Initialize metadata memory
@@ -222,7 +258,13 @@ impl<'a> Memory<'a> {
     ///
     /// This function uses a binary tree represented as an array of `BlockState`s.
     fn buddy_alloc(&mut self, n: usize) -> Result<PhysAddr, Error> {
+        if n > self.mem_size {
+            return Err(Error::OutOfMemory);
+        }
+
         let n: usize = if n < PAGE_SIZE { PAGE_SIZE } else { n };
+        let n = next_power_of_two(n).expect("can you really handle that size??");
+
         let req_order = self.buddy_high_order - find_order(n);
 
         let mut sp = 0_isize;
@@ -266,6 +308,54 @@ impl<'a> Memory<'a> {
         }
 
         return Err(Error::OutOfMemory);
+    }
+
+    fn buddy_free(&mut self, addr: PhysAddr) {
+        if let None = addr.size {
+            // If address doesn't have a size,
+            // then it was not allocated by this allocator.
+            return;
+        }
+
+        let size = addr.size.expect("buddy_free(): size is None.");
+        let offset = addr.as_usize() - self.start.as_usize();
+
+        let level = self.buddy_high_order - size.trailing_zeros() as usize; // Size is power of 2
+        let position = offset / size;
+        let i = (1 << level) - 1 + position;
+        let i_at_level = (1 + i) - 2_usize.pow(level as u32);
+
+        if self.buddy_meta[i] == BlockState::Allocated {
+            self.buddy_meta[i] = BlockState::Free;
+        } else {
+            panic!("buddy_free(): Memory at index {i} was not allocated, something is wrong.")
+        }
+
+        // Merge with buddy logic
+
+        let buddy_i_at_level = i_at_level ^ 1;
+        let mut buddy_i = buddy_i_at_level + 2_usize.pow(level as u32) - 1;
+        let mut level = level;
+        let mut i = i;
+        while self.buddy_meta[buddy_i] == BlockState::Free {
+            // in each iteration, i is the parent of the i in previous iterations.
+            i = (i - 1) / 2;
+
+            if self.buddy_meta[i] == BlockState::Split {
+                self.buddy_meta[i] = BlockState::Free;
+            } else {
+                panic!("buddy_free(): Memory at index {i} was not split, something is wrong.")
+            }
+
+            if i == 0 {
+                break;
+            }
+
+            level = level - 1;
+            let i_at_level = (1 + i) - 2_usize.pow(level as u32);
+            let buddy_i_at_level = i_at_level ^ 1;
+            buddy_i = buddy_i_at_level + 2_usize.pow(level as u32) - 1;
+        }
     }
 }
 

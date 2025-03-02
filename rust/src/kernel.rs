@@ -11,7 +11,7 @@ mod trap;
 
 use core::{arch::asm, hint::spin_loop, panic::PanicInfo};
 use mem::init_mem;
-use stdlib::{memset, phalloc};
+use stdlib::{memset, phalloc, phree};
 use trap::trap_entry;
 
 #[panic_handler]
@@ -75,11 +75,25 @@ unsafe fn kernel_main(hart_id: usize, dtb_addr: usize) -> ! {
 
     println!("Hello, World!");
 
-    let m = phalloc(32 * 1024 * 1024).unwrap();
-    println!("0x{:x}", m);
+    let m1 = phalloc(13 * 1024 * 1024).unwrap();
+    println!("0x{:x}", m1);
 
-    let m = phalloc(32 * 1024 * 1024).unwrap();
-    println!("0x{:x}", m);
+    let m2 = phalloc(12 * 1024 * 1024).unwrap();
+    println!("0x{:x}", m2);
+
+    let m3 = phalloc(15 * 1024 * 1024).unwrap();
+    println!("0x{:x}", m3);
+
+    let m4 = phalloc(16 * 1024 * 1024).unwrap();
+    println!("0x{:x}", m4);
+
+    phree(m1);
+
+    phree(m2);
+
+    phree(m3);
+
+    phree(m4);
 
     loop {
         unsafe { asm!("wfi") }
