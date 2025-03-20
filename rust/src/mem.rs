@@ -6,7 +6,7 @@ use core::{
 };
 
 use crate::{
-    panic, println,
+    panic,
     stdlib::memset,
     sync::{Mutex, OnceCell},
 };
@@ -418,7 +418,7 @@ impl PhysAddr {
     /// - The memory region must contain at least `len` initialized elements of type `T`.
     /// - The pointer must be properly aligned for type `T`.
     /// - The memory must remain allocated and immutable for the entire duration of the program.
-    unsafe fn as_slice<T>(self, len: usize) -> &'static [T] {
+    pub unsafe fn as_slice<T>(self, len: usize) -> &'static [T] {
         unsafe { slice::from_raw_parts(self.addr as *const T, len) }
     }
 
@@ -429,7 +429,7 @@ impl PhysAddr {
     /// - The pointer must be properly aligned for type `T`.
     /// - The memory must remain allocated for the entire duration of the program.
     /// - No other references (mutable or immutable) to the memory should exist while the mutable slice is in use.
-    unsafe fn as_slice_mut<T>(self, len: usize) -> &'static mut [T] {
+    pub unsafe fn as_slice_mut<T>(self, len: usize) -> &'static mut [T] {
         unsafe { slice::from_raw_parts_mut(self.addr as *mut T, len) }
     }
 
@@ -439,7 +439,7 @@ impl PhysAddr {
     /// - The memory region must be at least `size_of::<T>()` bytes.
     /// - The pointer must be properly aligned for type `T`.
     /// - The memory must remain allocated and immutable for the entire duration of the program.
-    unsafe fn as_struct<T>(self) -> &'static T {
+    pub unsafe fn as_struct<T>(self) -> &'static T {
         unsafe { &*(self.addr as *const T) }
     }
 
@@ -451,7 +451,7 @@ impl PhysAddr {
     /// - The memory must remain allocated for the entire duration of the program.
     /// - If the reference is used to read, the memory must be initialized.
     /// - No other references (mutable or immutable) to the memory should exist while the mutable reference is in use.
-    unsafe fn as_struct_mut<T>(self) -> &'static mut T {
+    pub unsafe fn as_struct_mut<T>(self) -> &'static mut T {
         unsafe { &mut *(self.addr as *const T as *mut T) }
     }
 
@@ -461,7 +461,7 @@ impl PhysAddr {
     /// - `self.addr as *const u8` is a valid pointer to a readable, initialized memory region of at least `len` bytes.
     /// - The memory region remains allocated and is not deallocated for the entire duration of the program.
     /// - The memory region is not mutated for the entire duration of the program, as the returned `&'static str` references it immutably.
-    unsafe fn as_str(self, len: usize) -> Result<&'static str, Utf8Error> {
+    pub unsafe fn as_str(self, len: usize) -> Result<&'static str, Utf8Error> {
         let byte_slice = unsafe { slice::from_raw_parts(self.addr as *const u8, len) };
         core::str::from_utf8(byte_slice)
     }
