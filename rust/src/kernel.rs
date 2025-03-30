@@ -4,6 +4,7 @@
 
 mod macros;
 mod mem;
+mod proc;
 mod sbi;
 mod stdlib;
 mod sync;
@@ -11,7 +12,7 @@ mod trap;
 
 use core::{arch::asm, hint::spin_loop, panic::PanicInfo};
 use mem::init_mem;
-use stdlib::{memset, phalloc, phree};
+use stdlib::memset;
 use trap::trap_entry;
 
 #[panic_handler]
@@ -66,6 +67,32 @@ unsafe fn kernel_init(hart_id: usize, _dtb_addr: usize) {
         alloc_mem_start as usize,
         alloc_mem_end as usize,
     );
+
+    proc::init()
+}
+
+fn delay() {
+    for _ in 0..10000000 {
+        core::hint::spin_loop();
+    }
+}
+
+#[unsafe(no_mangle)]
+fn proc_a_entry() {
+    loop {
+        print!("a");
+        proc::give_up();
+        delay();
+    }
+}
+
+#[unsafe(no_mangle)]
+fn proc_b_entry() {
+    loop {
+        print!("b");
+        proc::give_up();
+        delay();
+    }
 }
 
 unsafe fn kernel_main(hart_id: usize, dtb_addr: usize) -> ! {
@@ -75,29 +102,15 @@ unsafe fn kernel_main(hart_id: usize, dtb_addr: usize) -> ! {
 
     println!("Hello, World!");
 
-    let m1 = phalloc(13 * 1024 * 1024).unwrap();
-    println!("0x{:x}", m1);
+    // creating idle proc
+    proc::new(0);
 
-    let m2 = phalloc(12 * 1024 * 1024).unwrap();
-    println!("0x{:x}", m2);
+    proc::new(proc_a_entry as usize);
+    proc::new(proc_b_entry as usize);
 
-    let m3 = phalloc(15 * 1024 * 1024).unwrap();
-    println!("0x{:x}", m3);
+    proc::give_up();
 
-    let m4 = phalloc(16 * 1024 * 1024).unwrap();
-    println!("0x{:x}", m4);
-
-    phree(m1);
-
-    phree(m2);
-
-    phree(m3);
-
-    phree(m4);
-
-    loop {
-        unsafe { asm!("wfi") }
-    }
+    panic!("switched to idle proc");
 }
 
 #[unsafe(no_mangle)]
