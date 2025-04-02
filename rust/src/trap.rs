@@ -44,7 +44,7 @@ pub unsafe extern "C" fn trap_entry() {
     // FIXME: Doesn't save floating-point registers
     unsafe {
         naked_asm!(
-            "csrw sscratch, sp",
+            "csrrw sp, sscratch, sp",
             "addi sp, sp, -4 * 31",
             "sw ra,  4 * 0(sp)",
             "sw gp,  4 * 1(sp)",
@@ -78,6 +78,8 @@ pub unsafe extern "C" fn trap_entry() {
             "sw s11, 4 * 29(sp)",
             "csrr a0, sscratch",
             "sw a0, 4 * 30(sp)",
+            "addi a0, sp, 4 * 31",
+            "csrw sscratch, a0",
             "mv a0, sp",
             "call trap_handler",
             "lw ra,  4 * 0(sp)",

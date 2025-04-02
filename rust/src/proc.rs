@@ -1,4 +1,7 @@
-use core::{arch::naked_asm, ptr};
+use core::{
+    arch::{asm, naked_asm},
+    ptr,
+};
 
 use crate::{
     stdlib::FixedVec,
@@ -19,10 +22,10 @@ enum ProcState {
 
 #[derive(Debug)]
 pub struct Process {
+    stack: [u8; PROC_STACK_SIZE],
+    sp: usize,
     pid: usize,
     state: ProcState,
-    sp: usize,
-    stack: [u8; PROC_STACK_SIZE],
 }
 
 impl Process {
@@ -109,7 +112,18 @@ pub fn give_up() {
     }
 
     let prev_sp = proc_guard.get_proc(curr_proc_idx).sp_as_mut_ptr();
-    let next_sp = proc_guard.get_proc(next_runnable_idx).sp_as_mut_ptr();
+
+    let next = proc_guard.get_proc(next_runnable_idx);
+    let next_sp = next.sp_as_mut_ptr();
+    let next_stack = unsafe { (&next.stack[PROC_STACK_SIZE - 1] as *const u8).add(1) };
+
+    // trap_handler will use this value
+    unsafe {
+        asm!(
+            "csrw sscratch, {0}",
+            in(reg) next_stack,
+        );
+    }
 
     proc_guard.curr_proc_idx = next_runnable_idx;
 
