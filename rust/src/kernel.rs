@@ -11,7 +11,6 @@ mod sync;
 mod trap;
 
 use core::{arch::asm, hint::spin_loop, panic::PanicInfo};
-use mem::init_mem;
 use trap::trap_entry;
 
 #[panic_handler]
@@ -54,7 +53,7 @@ unsafe fn kernel_init(hart_id: usize, _dtb_addr: usize) {
     let ram_end = unsafe { &__free_ram_end } as *const u8;
     unsafe { ram_start.write_bytes(0, ram_end.offset_from(ram_start) as usize) };
 
-    init_mem(
+    mem::init(
         ram_start as usize,
         ram_end as usize,
         alloc_mem_start as usize,

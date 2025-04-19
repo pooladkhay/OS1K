@@ -6,7 +6,7 @@ use core::{
 };
 
 use crate::{
-    panic, println,
+    panic,
     sync::{Mutex, OnceCell},
 };
 
@@ -20,7 +20,7 @@ static MEMORY: OnceCell<Mutex<Memory>> = OnceCell::new();
 /// Initializes the global static instance of Memory
 ///
 /// Must be called early in the boot process before any call to buddy_alloc().
-pub fn init_mem(ram_start: usize, ram_end: usize, alloc_mem_start: usize, alloc_mem_end: usize) {
+pub fn init(ram_start: usize, ram_end: usize, alloc_mem_start: usize, alloc_mem_end: usize) {
     MEMORY.get_or_init(|| {
         Mutex::new(Memory::new(
             Some(ram_start),
