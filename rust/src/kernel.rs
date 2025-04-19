@@ -12,7 +12,6 @@ mod trap;
 
 use core::{arch::asm, hint::spin_loop, panic::PanicInfo};
 use mem::init_mem;
-use stdlib::memset;
 use trap::trap_entry;
 
 #[panic_handler]
@@ -43,23 +42,17 @@ unsafe fn kernel_init(hart_id: usize, _dtb_addr: usize) {
 
     let bss_start = unsafe { &__bss } as *const u8 as *mut u8;
     let bss_end = unsafe { &__bss_end } as *const u8;
-    _ = unsafe { memset(bss_start, 0, bss_end.offset_from(bss_start) as usize) };
+    unsafe { bss_start.write_bytes(0, bss_end.offset_from(bss_start) as usize) };
 
     let alloc_mem_start = unsafe { &__allocator_mem } as *const u8 as *mut u8;
     let alloc_mem_end = unsafe { &__allocator_mem_end } as *const u8;
-    _ = unsafe {
-        memset(
-            alloc_mem_start,
-            0,
-            alloc_mem_end.offset_from(alloc_mem_start) as usize,
-        )
-    };
+    unsafe { alloc_mem_start.write_bytes(0, alloc_mem_end.offset_from(alloc_mem_start) as usize) };
 
     // FIXME: Either this or zeroing during the allocation
     // FIXME: Should be replaced with the actual memory addresses acquired by parsing dtb
     let ram_start = unsafe { &__free_ram } as *const u8 as *mut u8;
     let ram_end = unsafe { &__free_ram_end } as *const u8;
-    _ = unsafe { memset(ram_start, 0, ram_end.offset_from(ram_start) as usize) };
+    unsafe { ram_start.write_bytes(0, ram_end.offset_from(ram_start) as usize) };
 
     init_mem(
         ram_start as usize,

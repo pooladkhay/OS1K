@@ -6,8 +6,7 @@ use core::{
 };
 
 use crate::{
-    panic,
-    stdlib::memset,
+    panic, println,
     sync::{Mutex, OnceCell},
 };
 
@@ -74,7 +73,9 @@ impl InitialAlloc {
     ///
     /// The caller must ensure that these assumptions hold, as violating them may lead to undefined behavior.
     fn new(start: usize, end: usize) -> Self {
-        unsafe { memset(start as *const u8 as *mut u8, 0, end - start) };
+        let _start = start as *const u8 as *mut u8;
+        let _end = end as *const u8 as *mut u8;
+        unsafe { _start.write_bytes(0, _end.offset_from(_start) as usize) };
 
         Self {
             start,
@@ -216,11 +217,8 @@ impl<'a> Memory<'a> {
                 .page_alloc(buddy_meta_size.div_ceil(PAGE_SIZE))
                 .as_mut_slice_leak::<BlockState>(buddy_node_count);
 
-            memset(
-                addr.as_mut_ptr() as *mut u8,
-                BlockState::Free as u8,
-                buddy_node_count,
-            );
+            addr.as_mut_ptr()
+                .write_bytes(BlockState::Free as u8, buddy_node_count);
             addr
         };
 
@@ -228,13 +226,14 @@ impl<'a> Memory<'a> {
         let buddy_high_order = find_order(mem_size);
         let buddy_low_order = find_order(PAGE_SIZE);
         let buddy_stack_len = buddy_high_order - buddy_low_order + 1;
+        // FIXME: rethink the stack size
         let buddy_stack_size = buddy_meta_size * size_of::<usize>();
         let buddy_stack = unsafe {
             let addr = sc_alloc
                 .page_alloc(buddy_stack_size.div_ceil(PAGE_SIZE))
                 .as_mut_slice_leak::<usize>(buddy_stack_len);
 
-            memset(addr.as_mut_ptr() as *mut u8, 0, buddy_stack_size);
+            addr.as_mut_ptr().write_bytes(0, buddy_meta_size);
             addr
         };
 
