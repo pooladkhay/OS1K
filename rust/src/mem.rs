@@ -10,7 +10,7 @@ use crate::{
     sync::{Mutex, OnceCell},
 };
 
-const PAGE_SIZE: usize = 4096;
+pub const PAGE_SIZE: usize = 4096;
 
 // MARK - INTERFACE TO THE MEMORY MANAGEMENT SUB-SYSTEM
 
