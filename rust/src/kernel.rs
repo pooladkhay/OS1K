@@ -9,6 +9,7 @@ mod sbi;
 mod stdlib;
 mod sync;
 mod trap;
+mod vm;
 
 use core::{arch::asm, hint::spin_loop, panic::PanicInfo};
 use trap::trap_entry;
@@ -26,6 +27,7 @@ unsafe extern "C" {
     static __free_ram_end: u8;
     static __allocator_mem: u8;
     static __allocator_mem_end: u8;
+    static __kernel_base: u8;
 }
 
 unsafe fn kernel_init(hart_id: usize, _dtb_addr: usize) {

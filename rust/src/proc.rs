@@ -4,8 +4,11 @@ use core::{
 };
 
 use crate::{
+    __free_ram_end, __kernel_base,
+    mem::PAGE_SIZE,
     stdlib::FixedVec,
     sync::{Mutex, OnceCell},
+    vm::{PAGE_R, PAGE_W, PAGE_X, PageTable, SATP_SV32},
 };
 
 const PROC_STACK_SIZE: usize = 8 * 1024 / size_of::<usize>();
@@ -25,6 +28,7 @@ pub struct Process {
     stack: [u8; PROC_STACK_SIZE],
     sp: usize,
     pid: usize,
+    page_table: PageTable,
     state: ProcState,
 }
 
@@ -81,6 +85,17 @@ impl ProcTable {
 
         proc.sp = sp as usize;
 
+        proc.page_table = PageTable::new();
+
+        let mut base = unsafe { &__kernel_base } as *const u8 as usize;
+        let end = unsafe { &__free_ram_end } as *const u8 as usize;
+
+        while base < end {
+            proc.page_table
+                .map_page(base, base, PAGE_R | PAGE_W | PAGE_X);
+            base += PAGE_SIZE;
+        }
+
         proc_index
     }
 }
@@ -117,11 +132,14 @@ pub fn give_up() {
     let next_sp = next.sp_as_mut_ptr();
     let next_stack = unsafe { (&next.stack[PROC_STACK_SIZE - 1] as *const u8).add(1) };
 
-    // trap_handler will use this value
     unsafe {
         asm!(
-            "csrw sscratch, {0}",
-            in(reg) next_stack,
+            "sfence.vma",
+            "csrw satp, {0}",
+            "sfence.vma",
+            "csrw sscratch, {1}",
+            in(reg) (SATP_SV32 | (next.page_table.root_pt_addr() / PAGE_SIZE)),
+            in(reg) next_stack, // trap_handler will use this value
         );
     }
 
