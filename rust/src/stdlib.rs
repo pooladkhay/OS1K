@@ -1,5 +1,4 @@
 use core::{
-    num::NonZero,
     ops::{Deref, DerefMut, Index, IndexMut},
     ptr::{self, NonNull},
     slice,
@@ -28,6 +27,7 @@ pub fn phree(addr: PhysAddr) {
 }
 
 // FIXME: Doesn't handle nested types properly. e.g FixedVec<FixedVec<usize>>
+#[derive(Debug)]
 pub struct FixedVec<T> {
     ptr: NonNull<T>,
     cap: usize,
@@ -47,7 +47,7 @@ impl<T> FixedVec<T> {
         let phys_addr = phalloc(size).unwrap();
 
         Self {
-            ptr: NonNull::dangling().with_addr(NonZero::new(phys_addr.as_usize()).unwrap()),
+            ptr: NonNull::new(phys_addr.as_mut_ptr() as *mut T).unwrap(),
             cap,
             phys_addr,
         }
@@ -55,6 +55,11 @@ impl<T> FixedVec<T> {
 
     pub fn cap(&self) -> usize {
         self.cap
+    }
+
+    /// Returns a raw pointer to the backing memory for the `FixedVec`.
+    pub fn as_ptr(&self) -> *const T {
+        self.ptr.as_ptr()
     }
 }
 
